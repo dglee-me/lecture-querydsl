@@ -7,7 +7,11 @@ plugins {
 }
 
 group = "kr.co.dglee"
-version = "0.0.1-SNAPSHOT"
+version = "0.0.1"
+
+ext["tomcat.version"] = "10.1.24"
+
+val querydslVersion = "5.1.0"
 
 java {
     toolchain {
@@ -29,6 +33,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
+    implementation("com.querydsl:querydsl-jpa:$querydslVersion:jakarta")
+    annotationProcessor("com.querydsl:querydsl-apt:$querydslVersion:jakarta")
+    annotationProcessor("jakarta.annotation:jakarta.annotation-api")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
+
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
 
@@ -46,4 +55,10 @@ hibernate {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.named("clean") {
+    doLast {
+        file("src/main/generated").deleteRecursively()
+    }
 }

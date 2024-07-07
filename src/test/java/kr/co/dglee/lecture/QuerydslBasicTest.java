@@ -6,10 +6,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import static com.querydsl.jpa.JPAExpressions.select;
+
+import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import java.util.List;
+
+import kr.co.dglee.lecture.dto.MemberDTO;
+import kr.co.dglee.lecture.dto.QMemberDTO;
 import kr.co.dglee.lecture.entity.Member;
+import kr.co.dglee.lecture.entity.QMember;
 import kr.co.dglee.lecture.entity.Team;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -190,7 +197,7 @@ public class QuerydslBasicTest {
         .containsExactly("member1", "member2");
   }
 
-  
+
   @Test
   void fetchJoin() throws Exception {
     em.flush();
@@ -215,6 +222,110 @@ public class QuerydslBasicTest {
 
     isLoaded = em.getEntityManagerFactory().getPersistenceUnitUtil().isLoaded(findMember.getTeam());
     assertThat(isLoaded).as("페치 조인 적용").isTrue();
+  }
 
+  @Test
+  void subQuery() throws Exception {
+
+    // subquery에서 사용할 query alias를 생성 (member와 겹치면 안되니까)
+    QMember memberSub = new QMember("memberSub");
+
+    List<Member> result = queryFactory
+        .selectFrom(member)
+        .where(
+			member.age.eq(
+				select(memberSub.age.max())
+				.from(memberSub))
+        )
+        .fetch();
+
+    assertThat(result).extracting("age").containsExactly(40);
+  }
+
+  @Test
+  void selectSubQuery() throws Exception {
+
+    QMember memberSub = new QMember("memberSub");
+
+    List<Tuple> result = queryFactory
+        .select(member.username, select(memberSub.age.avg()).from(memberSub))
+        .from(member)
+        .fetch();
+
+    result.stream()
+        .forEach(tuple -> System.out.println("tuple = " + tuple));
+  }
+
+  @Test
+  void simpleProjection() {
+
+    // 1개의 컬럼 / 객체를 조회할 경우 튜플이 아닌 해당 타입으로 조회 가능
+    List<String> result = queryFactory
+        .select(member.username)
+        .from(member)
+        .fetch();
+
+    result.stream()
+        .forEach(username -> System.out.println("username = " + username));
+
+    List<Member> mResult = queryFactory
+        .select(member)
+        .from(member)
+        .fetch();
+
+    mResult.stream()
+        .forEach(m -> System.out.println("m = " + m));
+
+    // 2개부터는 튜플로 조회된다.
+    List<Tuple> tupleResult = queryFactory
+        .select(member.username, member.age)
+        .from(member)
+        .fetch();
+
+    tupleResult.stream()
+        .forEach(tuple -> {
+          System.out.println("username = " + tuple.get(member.username));
+          System.out.println("age = " + tuple.get(member.age));
+        });
+  }
+
+  // Getter, Setter를 이용한 DTO 조회
+  @Test
+  void findDTOBySetter() {
+    List<MemberDTO> result = queryFactory
+        .select(Projections.bean(MemberDTO.class,
+            member.username,
+            member.age))
+        .from(member)
+        .fetch();
+
+    result.stream()
+        .forEach(memberDTO -> System.out.println("memberDTO = " + memberDTO));
+  }
+
+  // 필드 직접 접근을 이용한 DTO 조회 (Setter가 없어도 됨)
+  @Test
+  void findDTOByField() {
+      List<MemberDTO> result = queryFactory
+          .select(Projections.fields(MemberDTO.class,
+              member.username,
+              member.age))
+          .from(member)
+          .fetch();
+
+      result.stream()
+          .forEach(memberDTO -> System.out.println("memberDTO = " + memberDTO));
+  }
+
+  @Test
+  void findDTOByQueryProjection() {
+    List<MemberDTO> result = queryFactory
+        .select(new QMemberDTO(member.username, member.age))
+        .from(member)
+        .fetch();
+
+    for (MemberDTO memberDTO : result) {
+        System.out.println("memberDTO = " + memberDTO);
+    }
   }
 }

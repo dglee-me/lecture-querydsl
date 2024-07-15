@@ -4,11 +4,13 @@ import static kr.co.dglee.lecture.entity.QMember.member;
 import static kr.co.dglee.lecture.entity.QTeam.team;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import static com.querydsl.jpa.JPAExpressions.select;
 
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -327,5 +329,65 @@ public class QuerydslBasicTest {
     for (MemberDTO memberDTO : result) {
         System.out.println("memberDTO = " + memberDTO);
     }
+  }
+
+  @Test
+  void dynamicQuery_BooleanBuilder() {
+    String usernameParam = "member1";
+    Integer ageParam = 10;
+
+    List<Member> result = searchMember1(usernameParam, ageParam);
+    Assertions.assertEquals(1, result.size());
+  }
+
+  private List<Member> searchMember1(String usernameCond, Integer ageCond) {
+    BooleanBuilder builder = new BooleanBuilder();
+    if (usernameCond != null) {
+      builder.and(member.username.eq(usernameCond));
+    }
+
+    if (ageCond != null) {
+      builder.and(member.age.eq(ageCond));
+    }
+
+    return queryFactory
+        .selectFrom(member)
+        .where(builder)
+        .fetch();
+  }
+
+  private List<Member> searchMember2(String usernameCond, Integer ageCond) {
+    return queryFactory
+        .selectFrom(member)
+        // .where(usernameEq(usernameCond), ageEq(ageCond))
+        .where(allEq(usernameCond, ageCond))
+        .fetch();
+  }
+
+  private BooleanExpression usernameEq(String username) {
+    if (username == null) {
+      return null;
+    }
+    return member.username.eq(username);
+  }
+
+  private BooleanExpression ageEq(Integer age) {
+    if (age == null) {
+      return null;
+    }
+    return member.age.eq(age);
+  }
+
+  private BooleanExpression allEq(String username, Integer age) {
+    return usernameEq(username).and(ageEq(age));
+  }
+
+  @Test
+  void dynamicQuery_WhereParam() {
+    String usernameParam = "member1";
+    Integer ageParam = 10;
+
+    List<Member> result = searchMember2(usernameParam, ageParam);
+    Assertions.assertEquals(1, result.size());
   }
 }
